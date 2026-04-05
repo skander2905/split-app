@@ -1,7 +1,5 @@
-import type { EventData, Expense, Participant, Settlement } from '@/types';
+import type { EventData, Expense, HistoryEntry, Participant, Settlement } from '@/types';
 
-// In development Vite proxies /api → http://localhost:3001
-// In production set VITE_API_URL to your backend URL
 const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -14,6 +12,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? 'Request failed');
   }
+
+  // 204 No Content
+  if (res.status === 204) return undefined as T;
 
   return res.json() as Promise<T>;
 }
@@ -43,16 +44,32 @@ export const api = {
   expenses: {
     add: (
       slug: string,
-      data: {
-        title: string;
-        amount: number;
-        paidById: string;
-        participantIds: string[];
-      },
+      data: { title: string; amount: number; paidById: string; participantIds: string[] },
     ) =>
       request<Expense>(`/events/${slug}/expenses`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+
+    update: (
+      slug: string,
+      expenseId: string,
+      data: { title: string; amount: number; paidById: string; participantIds: string[] },
+    ) =>
+      request<Expense>(`/events/${slug}/expenses/${expenseId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    remove: (slug: string, expenseId: string) =>
+      request<void>(`/events/${slug}/expenses/${expenseId}`, { method: 'DELETE' }),
+  },
+
+  history: {
+    get: (slug: string) => request<HistoryEntry[]>(`/events/${slug}/history`),
+    undo: (slug: string) =>
+      request<{ ok: boolean }>(`/events/${slug}/history/undo`, { method: 'POST' }),
+    redo: (slug: string) =>
+      request<{ ok: boolean }>(`/events/${slug}/history/redo`, { method: 'POST' }),
   },
 };

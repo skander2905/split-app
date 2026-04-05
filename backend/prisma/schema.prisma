@@ -8,12 +8,13 @@ generator client {
 }
 
 model Event {
-  id           String        @id @default(cuid())
+  id           String           @id @default(cuid())
   name         String
-  slug         String        @unique
-  createdAt    DateTime      @default(now())
+  slug         String           @unique
+  createdAt    DateTime         @default(now())
   participants Participant[]
   expenses     Expense[]
+  history      ExpenseHistory[]
 }
 
 model Participant {
@@ -45,4 +46,26 @@ model ExpenseSplit {
   participantId String
   participant   Participant @relation(fields: [participantId], references: [id])
   amount        Float
+}
+
+// ── History / Audit Log ───────────────────────────────────────────────────────
+// Each entry captures a snapshot of the expense before and after the action.
+// undoneAt tracks whether this entry has been undone (enables redo).
+
+enum HistoryAction {
+  ADD
+  EDIT
+  DELETE
+}
+
+model ExpenseHistory {
+  id         String        @id @default(cuid())
+  eventId    String
+  event      Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  action     HistoryAction
+  expenseId  String        // always refers to the affected expense (even if deleted)
+  data       Json?         // snapshot AFTER the action  (null for DELETE)
+  prevData   Json?         // snapshot BEFORE the action (null for ADD)
+  undoneAt   DateTime?     // null = active, non-null = undone (enables redo)
+  createdAt  DateTime      @default(now())
 }
