@@ -1,6 +1,9 @@
 import prisma from '../lib/prisma';
-import { HistoryAction } from '@prisma/client';
+import { Prisma, HistoryAction } from '@prisma/client';
 import { expenseService, toSnapshot, type ExpenseSnapshot } from './expense.service';
+
+const toJson = (v: ExpenseSnapshot | null): Prisma.InputJsonValue | undefined =>
+  v ? (v as unknown as Prisma.InputJsonValue) : undefined;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,9 +68,8 @@ export const historyService = {
         eventId,
         action,
         expenseId,
-        // Prisma's Json type requires casting through unknown
-        data: (data ?? undefined) as unknown as Record<string, unknown>,
-        prevData: (prevData ?? undefined) as unknown as Record<string, unknown>,
+        data: toJson(data),
+        prevData: toJson(prevData),
       },
     });
   },
