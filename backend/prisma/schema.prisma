@@ -1,0 +1,48 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Event {
+  id           String        @id @default(cuid())
+  name         String
+  slug         String        @unique
+  createdAt    DateTime      @default(now())
+  participants Participant[]
+  expenses     Expense[]
+}
+
+model Participant {
+  id           String         @id @default(cuid())
+  name         String
+  eventId      String
+  event        Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  paidExpenses Expense[]      @relation("PaidBy")
+  splits       ExpenseSplit[]
+}
+
+model Expense {
+  id        String         @id @default(cuid())
+  title     String
+  amount    Float
+  eventId   String
+  event     Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  paidById  String
+  paidBy    Participant    @relation("PaidBy", fields: [paidById], references: [id])
+  splits    ExpenseSplit[]
+  createdAt DateTime       @default(now())
+}
+
+// Represents how much each participant owes for a given expense
+model ExpenseSplit {
+  id            String      @id @default(cuid())
+  expenseId     String
+  expense       Expense     @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id])
+  amount        Float
+}
