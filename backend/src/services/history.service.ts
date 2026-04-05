@@ -65,8 +65,9 @@ export const historyService = {
         eventId,
         action,
         expenseId,
-        data: data ?? undefined,
-        prevData: prevData ?? undefined,
+        // Prisma's Json type requires casting through unknown
+        data: (data ?? undefined) as unknown as Record<string, unknown>,
+        prevData: (prevData ?? undefined) as unknown as Record<string, unknown>,
       },
     });
   },
@@ -97,7 +98,7 @@ export const historyService = {
       await expenseService.remove(expenseId);
     } else if (action === 'EDIT') {
       // Inverse of EDIT = restore previous state
-      const prev = prevData as ExpenseSnapshot;
+      const prev = prevData as unknown as ExpenseSnapshot;
       await expenseService.update(
         expenseId,
         prev.title,
@@ -107,7 +108,7 @@ export const historyService = {
       );
     } else if (action === 'DELETE') {
       // Inverse of DELETE = recreate from the snapshot saved before deletion
-      const prev = prevData as ExpenseSnapshot;
+      const prev = prevData as unknown as ExpenseSnapshot;
       await expenseService.recreate(prev);
     }
 
@@ -144,11 +145,11 @@ export const historyService = {
 
     if (action === 'ADD') {
       // Re-apply ADD = recreate from original snapshot
-      const snap = data as ExpenseSnapshot;
+      const snap = data as unknown as ExpenseSnapshot;
       await expenseService.recreate(snap);
     } else if (action === 'EDIT') {
       // Re-apply EDIT = apply data again
-      const snap = data as ExpenseSnapshot;
+      const snap = data as unknown as ExpenseSnapshot;
       await expenseService.update(
         expenseId,
         snap.title,
