@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import {
   SplitSquareVertical,
   Plus,
@@ -497,9 +497,9 @@ export default function EventPage() {
       <header className="border-b bg-background/95 backdrop-blur sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center shrink-0">
+            <Link to="/" className="h-8 w-8 rounded-md bg-primary flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity" title="Back to home">
               <SplitSquareVertical className="h-4 w-4 text-primary-foreground" />
-            </div>
+            </Link>
             <div className="min-w-0">
               <h1 className="font-semibold text-base leading-tight truncate">{event.name}</h1>
               <p className="text-xs text-muted-foreground hidden sm:block">
