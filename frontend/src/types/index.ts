@@ -47,3 +47,24 @@ export interface Settlement {
   balances: Balance[];
   transactions: Transaction[];
 }
+
+export type HistoryAction = 'ADD' | 'EDIT' | 'DELETE';
+
+export interface ExpenseSnapshot {
+  id: string;
+  title: string;
+  amount: number;
+  paidById: string;
+  participantIds: string[];
+  eventId: string;
+}
+
+export interface HistoryEntry {
+  id: string;
+  action: HistoryAction;
+  expenseId: string;
+  data: ExpenseSnapshot | null;
+  prevData: ExpenseSnapshot | null;
+  undoneAt: string | null;
+  createdAt: string;
+}
