@@ -14,16 +14,31 @@ model Event {
   createdAt    DateTime         @default(now())
   participants Participant[]
   expenses     Expense[]
+  payments     Payment[]
   history      ExpenseHistory[]
 }
 
 model Participant {
-  id           String         @id @default(cuid())
-  name         String
-  eventId      String
-  event        Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  paidExpenses Expense[]      @relation("PaidBy")
-  splits       ExpenseSplit[]
+  id              String         @id @default(cuid())
+  name            String
+  eventId         String
+  event           Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  paidExpenses    Expense[]      @relation("PaidBy")
+  splits          ExpenseSplit[]
+  paymentsSent    Payment[]      @relation("PaymentFrom")
+  paymentsReceived Payment[]     @relation("PaymentTo")
+}
+
+model Payment {
+  id        String      @id @default(cuid())
+  eventId   String
+  event     Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fromId    String
+  from      Participant @relation("PaymentFrom", fields: [fromId], references: [id])
+  toId      String
+  to        Participant @relation("PaymentTo", fields: [toId], references: [id])
+  amount    Float
+  createdAt DateTime    @default(now())
 }
 
 model Expense {

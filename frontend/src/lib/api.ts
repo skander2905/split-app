@@ -1,4 +1,4 @@
-import type { EventData, Expense, HistoryEntry, Participant, Settlement } from '@/types';
+import type { EventData, Expense, HistoryEntry, Participant, Payment, Settlement } from '@/types';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
 
@@ -28,6 +28,12 @@ export const api = {
       }),
 
     get: (slug: string) => request<EventData>(`/events/${slug}`),
+
+    rename: (slug: string, name: string) =>
+      request<{ id: string; name: string; slug: string }>(`/events/${slug}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      }),
 
     getSettlements: (slug: string) =>
       request<Settlement>(`/events/${slug}/settlements`),
@@ -63,6 +69,17 @@ export const api = {
 
     remove: (slug: string, expenseId: string) =>
       request<void>(`/events/${slug}/expenses/${expenseId}`, { method: 'DELETE' }),
+  },
+
+  payments: {
+    create: (slug: string, data: { fromId: string; toId: string; amount: number }) =>
+      request<Payment>(`/events/${slug}/payments`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    remove: (slug: string, paymentId: string) =>
+      request<void>(`/events/${slug}/payments/${paymentId}`, { method: 'DELETE' }),
   },
 
   history: {

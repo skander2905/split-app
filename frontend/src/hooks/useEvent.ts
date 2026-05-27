@@ -10,6 +10,7 @@ interface UseEventReturn {
   canRedo: boolean;
   loading: boolean;
   error: string | null;
+  renameEvent: (name: string) => Promise<void>;
   addParticipant: (name: string) => Promise<Participant>;
   addExpense: (data: {
     title: string;
@@ -22,6 +23,8 @@ interface UseEventReturn {
     data: { title: string; amount: number; paidById: string; participantIds: string[] },
   ) => Promise<Expense>;
   deleteExpense: (expenseId: string) => Promise<void>;
+  settlePayment: (data: { fromId: string; toId: string; amount: number }) => Promise<void>;
+  unsettlePayment: (paymentId: string) => Promise<void>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
 }
@@ -64,6 +67,13 @@ export function useEvent(slug: string): UseEventReturn {
     ]);
     setSettlement(settlementData);
     setHistory(historyData);
+  };
+
+  // ── Event ──────────────────────────────────────────────────────────────────
+
+  const renameEvent = async (name: string): Promise<void> => {
+    const updated = await api.events.rename(slug, name);
+    setEvent((prev) => (prev ? { ...prev, name: updated.name } : prev));
   };
 
   // ── Participants ───────────────────────────────────────────────────────────
@@ -117,6 +127,22 @@ export function useEvent(slug: string): UseEventReturn {
     await refreshDerived();
   };
 
+  // ── Payments (settlements) ─────────────────────────────────────────────────
+
+  const settlePayment = async (data: {
+    fromId: string;
+    toId: string;
+    amount: number;
+  }): Promise<void> => {
+    await api.payments.create(slug, data);
+    await refreshDerived();
+  };
+
+  const unsettlePayment = async (paymentId: string): Promise<void> => {
+    await api.payments.remove(slug, paymentId);
+    await refreshDerived();
+  };
+
   // ── Undo / Redo ────────────────────────────────────────────────────────────
   // After undo/redo the full event must be re-fetched because the expense list
   // can change in complex ways (expense recreated with same ID, etc.)
@@ -144,10 +170,13 @@ export function useEvent(slug: string): UseEventReturn {
     canRedo,
     loading,
     error,
+    renameEvent,
     addParticipant,
     addExpense,
     editExpense,
     deleteExpense,
+    settlePayment,
+    unsettlePayment,
     undo,
     redo,
   };

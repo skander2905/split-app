@@ -12,6 +12,10 @@ export const eventService = {
     return prisma.event.create({ data: { name, slug } });
   },
 
+  async rename(slug: string, name: string) {
+    return prisma.event.update({ where: { slug }, data: { name } });
+  },
+
   /**
    * Fetches a full event with all nested relations needed by the frontend:
    * participants, expenses (with payer + per-participant splits).

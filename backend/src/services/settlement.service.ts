@@ -85,12 +85,13 @@ function calculateSettlements(balances: Balance[]): Transaction[] {
 
 export const settlementService = {
   async calculate(eventId: string) {
-    const [participants, expenses] = await Promise.all([
+    const [participants, expenses, payments] = await Promise.all([
       prisma.participant.findMany({ where: { eventId } }),
       prisma.expense.findMany({
         where: { eventId },
         include: { splits: true },
       }),
+      prisma.payment.findMany({ where: { eventId } }),
     ]);
 
     // Build a balance map: participantId → { name, paid, owed }
@@ -114,6 +115,13 @@ export const settlementService = {
       }
     }
 
+    // Settlement payments: when A pays B, A's "paid" increases (debt reduced)
+    // and B's "owed" increases (credit reduced) — bringing both toward zero.
+    for (const payment of payments) {
+      if (map[payment.fromId]) map[payment.fromId].paid += payment.amount;
+      if (map[payment.toId]) map[payment.toId].owed += payment.amount;
+    }
+
     const balances: Balance[] = Object.entries(map).map(
       ([id, { name, paid, owed }]) => ({
         participantId: id,
@@ -125,6 +133,7 @@ export const settlementService = {
     return {
       balances,
       transactions: calculateSettlements(balances),
+      payments,
     };
   },
 };

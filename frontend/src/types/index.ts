@@ -43,9 +43,19 @@ export interface Transaction {
   amount: number;
 }
 
+export interface Payment {
+  id: string;
+  eventId: string;
+  fromId: string;
+  toId: string;
+  amount: number;
+  createdAt: string;
+}
+
 export interface Settlement {
   balances: Balance[];
   transactions: Transaction[];
+  payments: Payment[];
 }
 
 export type HistoryAction = 'ADD' | 'EDIT' | 'DELETE';

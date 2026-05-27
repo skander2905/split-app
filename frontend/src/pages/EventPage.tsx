@@ -53,6 +53,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 // ─── Relative time helper ─────────────────────────────────────────────────────
 
@@ -421,13 +422,23 @@ export default function EventPage() {
     canRedo,
     loading,
     error,
+    renameEvent,
     addParticipant,
     addExpense,
     editExpense,
     deleteExpense,
+    settlePayment,
+    unsettlePayment,
     undo,
     redo,
   } = useEvent(slug!);
+
+  const [settlingIdx, setSettlingIdx] = useState<number | null>(null);
+  const [unsettlingId, setUnsettlingId] = useState<string | null>(null);
+
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [renamingLoading, setRenamingLoading] = useState(false);
 
   const [newName, setNewName] = useState('');
   const [addingParticipant, setAddingParticipant] = useState(false);
@@ -456,6 +467,34 @@ export default function EventPage() {
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const startEditingName = () => {
+    if (!event) return;
+    setDraftName(event.name);
+    setEditingName(true);
+  };
+
+  const cancelEditingName = () => {
+    setEditingName(false);
+    setDraftName('');
+  };
+
+  const submitRename = async () => {
+    const trimmed = draftName.trim();
+    if (!trimmed || !event || trimmed === event.name) {
+      cancelEditingName();
+      return;
+    }
+    setRenamingLoading(true);
+    try {
+      await renameEvent(trimmed);
+      setEditingName(false);
+    } catch {
+      // keep the editor open so the user can retry
+    } finally {
+      setRenamingLoading(false);
+    }
   };
 
   const handleUndo = async () => {
@@ -500,8 +539,40 @@ export default function EventPage() {
             <Link to="/" className="h-8 w-8 rounded-md bg-primary flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity" title="Back to home">
               <SplitSquareVertical className="h-4 w-4 text-primary-foreground" />
             </Link>
-            <div className="min-w-0">
-              <h1 className="font-semibold text-base leading-tight truncate">{event.name}</h1>
+            <div className="min-w-0 flex-1">
+              {editingName ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    submitRename();
+                  }}
+                  className="flex items-center gap-1"
+                >
+                  <Input
+                    autoFocus
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    onBlur={submitRename}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') cancelEditingName();
+                    }}
+                    disabled={renamingLoading}
+                    className="h-8 text-base font-semibold"
+                    maxLength={120}
+                  />
+                  {renamingLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={startEditingName}
+                  className="group flex items-center gap-1.5 max-w-full text-left hover:opacity-80 transition-opacity"
+                  title="Rename event"
+                >
+                  <h1 className="font-semibold text-base leading-tight truncate">{event.name}</h1>
+                  <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                </button>
+              )}
               <p className="text-xs text-muted-foreground hidden sm:block">
                 {event.participants.length} participant{event.participants.length !== 1 ? 's' : ''}{' '}
                 · {formatCurrency(totalSpent)} total
@@ -537,6 +608,8 @@ export default function EventPage() {
                 <Redo2 className="h-4 w-4" />
               )}
             </Button>
+
+            <ThemeToggle />
 
             <Button variant="outline" size="sm" onClick={handleCopyLink}>
               {copied ? (
@@ -737,6 +810,33 @@ export default function EventPage() {
                       <span className="font-bold text-sm tabular-nums">
                         {formatCurrency(tx.amount)}
                       </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={settlingIdx === i}
+                        onClick={async () => {
+                          setSettlingIdx(i);
+                          try {
+                            await settlePayment({
+                              fromId: tx.fromId,
+                              toId: tx.toId,
+                              amount: tx.amount,
+                            });
+                          } finally {
+                            setSettlingIdx(null);
+                          }
+                        }}
+                        title={`Mark ${tx.from} → ${tx.to} as paid`}
+                      >
+                        {settlingIdx === i ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            <Check className="h-3.5 w-3.5 mr-1" />
+                            Settle
+                          </>
+                        )}
+                      </Button>
                     </li>
                   ))}
                 </ul>
@@ -763,6 +863,59 @@ export default function EventPage() {
                   </>
                 )}
               </div>
+            )}
+
+            {/* Recorded settlements */}
+            {settlement?.payments && settlement.payments.length > 0 && (
+              <>
+                <Separator className="my-4" />
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                  Recorded payments
+                </p>
+                <ul className="space-y-1.5">
+                  {settlement.payments.map((p) => {
+                    const fromName = event.participants.find((x) => x.id === p.fromId)?.name ?? '?';
+                    const toName = event.participants.find((x) => x.id === p.toId)?.name ?? '?';
+                    return (
+                      <li
+                        key={p.id}
+                        className="flex items-center gap-2 text-sm rounded-md bg-secondary/40 px-3 py-2"
+                      >
+                        <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                        <span className="truncate">
+                          <span className="font-medium">{fromName}</span>
+                          <span className="text-muted-foreground"> paid </span>
+                          <span className="font-medium">{toName}</span>
+                        </span>
+                        <span className="font-semibold tabular-nums ml-auto shrink-0">
+                          {formatCurrency(p.amount)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={unsettlingId === p.id}
+                          onClick={async () => {
+                            setUnsettlingId(p.id);
+                            try {
+                              await unsettlePayment(p.id);
+                            } finally {
+                              setUnsettlingId(null);
+                            }
+                          }}
+                          title="Undo this settlement"
+                        >
+                          {unsettlingId === p.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
             )}
           </CardContent>
         </Card>
