@@ -16,6 +16,21 @@ export const eventController = {
     }
   },
 
+  async rename(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { name } = req.body;
+      if (!name?.trim()) {
+        return res.status(400).json({ error: 'Event name is required.' });
+      }
+      const existing = await eventService.findBySlug(req.params.slug);
+      if (!existing) return res.status(404).json({ error: 'Event not found.' });
+      const event = await eventService.rename(req.params.slug, name.trim());
+      res.json(event);
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async getBySlug(req: Request, res: Response, next: NextFunction) {
     try {
       const event = await eventService.findBySlug(req.params.slug);
