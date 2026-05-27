@@ -257,9 +257,9 @@ function AddExpenseDialog({ participants, onAdd }: AddExpenseDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button disabled={participants.length < 2}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add expense
+        <Button disabled={participants.length < 2} size="sm" className="px-2.5 sm:px-3">
+          <Plus className="h-4 w-4 sm:mr-1.5" />
+          <span className="hidden sm:inline">Add expense</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
@@ -534,8 +534,8 @@ export default function EventPage() {
     <div className="min-h-screen bg-background">
       {/* ── Header ── */}
       <header className="border-b bg-background/95 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <Link to="/" className="h-8 w-8 rounded-md bg-primary flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity" title="Back to home">
               <SplitSquareVertical className="h-4 w-4 text-primary-foreground" />
             </Link>
@@ -580,42 +580,26 @@ export default function EventPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Undo / Redo */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleUndo}
-              disabled={!canUndo || undoLoading}
-              title="Undo (last expense action)"
-            >
-              {undoLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Undo2 className="h-4 w-4" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRedo}
-              disabled={!canRedo || redoLoading}
-              title="Redo"
-            >
-              {redoLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Redo2 className="h-4 w-4" />
-              )}
-            </Button>
-
+          <div className="flex items-center gap-0.5 sm:gap-2 shrink-0">
             <ThemeToggle />
 
-            <Button variant="outline" size="sm" onClick={handleCopyLink}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyLink}
+              className="px-2 sm:px-3"
+              title="Share event link"
+            >
               {copied ? (
-                <><Check className="h-3.5 w-3.5 mr-1.5" />Copied</>
+                <>
+                  <Check className="h-3.5 w-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Copied</span>
+                </>
               ) : (
-                <><Copy className="h-3.5 w-3.5 mr-1.5" />Share</>
+                <>
+                  <Copy className="h-3.5 w-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Share</span>
+                </>
               )}
             </Button>
 
@@ -625,7 +609,7 @@ export default function EventPage() {
       </header>
 
       {/* ── Body ── */}
-      <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+      <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8 space-y-4 sm:space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3">
           {[
@@ -634,9 +618,9 @@ export default function EventPage() {
             { icon: TrendingUp, label: 'Total spent', value: formatCurrency(totalSpent) },
           ].map(({ icon: Icon, label, value }) => (
             <Card key={label} className="text-center">
-              <CardContent className="pt-4 pb-3 px-3">
+              <CardContent className="pt-4 pb-3 px-2 sm:px-3">
                 <Icon className="h-4 w-4 mx-auto mb-1.5 text-muted-foreground" />
-                <p className="text-xl font-bold tabular-nums">{value}</p>
+                <p className="text-base sm:text-xl font-bold tabular-nums truncate">{value}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
               </CardContent>
             </Card>
@@ -795,24 +779,32 @@ export default function EventPage() {
               <div className="space-y-3">
                 <ul className="space-y-2">
                   {settlement.transactions.map((tx, i) => (
-                    <li key={i} className="flex items-center gap-3 rounded-lg border px-4 py-3">
-                      <div className="h-7 w-7 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                        <span className="text-xs font-semibold">{tx.from[0].toUpperCase()}</span>
+                    <li
+                      key={i}
+                      className="flex items-center gap-2 sm:gap-3 rounded-lg border px-2.5 sm:px-4 py-2.5 sm:py-3"
+                    >
+                      <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                        <span className="text-[10px] sm:text-xs font-semibold">
+                          {tx.from[0].toUpperCase()}
+                        </span>
                       </div>
-                      <span className="font-medium text-sm">{tx.from}</span>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mx-1" />
-                      <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center shrink-0">
-                        <span className="text-xs font-semibold text-primary-foreground">
+                      <span className="font-medium text-xs sm:text-sm truncate">{tx.from}</span>
+                      <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
+                      <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-primary flex items-center justify-center shrink-0">
+                        <span className="text-[10px] sm:text-xs font-semibold text-primary-foreground">
                           {tx.to[0].toUpperCase()}
                         </span>
                       </div>
-                      <span className="font-medium text-sm flex-1">{tx.to}</span>
-                      <span className="font-bold text-sm tabular-nums">
+                      <span className="font-medium text-xs sm:text-sm truncate flex-1 min-w-0">
+                        {tx.to}
+                      </span>
+                      <span className="font-bold text-xs sm:text-sm tabular-nums shrink-0">
                         {formatCurrency(tx.amount)}
                       </span>
                       <Button
                         size="sm"
                         variant="outline"
+                        className="h-8 w-8 p-0 sm:h-9 sm:w-auto sm:px-3 shrink-0"
                         disabled={settlingIdx === i}
                         onClick={async () => {
                           setSettlingIdx(i);
@@ -832,8 +824,8 @@ export default function EventPage() {
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
                           <>
-                            <Check className="h-3.5 w-3.5 mr-1" />
-                            Settle
+                            <Check className="h-3.5 w-3.5 sm:mr-1" />
+                            <span className="hidden sm:inline">Settle</span>
                           </>
                         )}
                       </Button>
@@ -929,9 +921,6 @@ export default function EventPage() {
                   <Clock className="h-4 w-4" />
                   History
                 </CardTitle>
-                <CardDescription className="mt-1">
-                  Full log of expense actions. Use ↩ ↪ in the header to undo/redo.
-                </CardDescription>
               </div>
               <div className="flex gap-1">
                 <Button
