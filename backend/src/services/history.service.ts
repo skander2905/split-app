@@ -1,18 +1,28 @@
 import prisma from '../lib/prisma';
 import { Prisma, HistoryAction } from '@prisma/client';
 import { expenseService, toSnapshot, type ExpenseSnapshot } from './expense.service';
+import type { ParticipantSnapshot } from './participant.service';
 
 const toJson = (v: ExpenseSnapshot | null): Prisma.InputJsonValue | undefined =>
   v ? (v as unknown as Prisma.InputJsonValue) : undefined;
 
+/** Expense actions participate in undo/redo; participant actions are log-only. */
+const EXPENSE_ACTIONS: HistoryAction[] = [
+  HistoryAction.ADD,
+  HistoryAction.EDIT,
+  HistoryAction.DELETE,
+];
+
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+export type HistorySnapshot = ExpenseSnapshot | ParticipantSnapshot;
 
 export interface HistoryEntry {
   id: string;
   action: HistoryAction;
-  expenseId: string;
-  data: ExpenseSnapshot | null;
-  prevData: ExpenseSnapshot | null;
+  expenseId: string | null;
+  data: HistorySnapshot | null;
+  prevData: HistorySnapshot | null;
   undoneAt: string | null;
   createdAt: string;
 }
@@ -44,8 +54,8 @@ export const historyService = {
       id: e.id,
       action: e.action,
       expenseId: e.expenseId,
-      data: e.data as ExpenseSnapshot | null,
-      prevData: e.prevData as ExpenseSnapshot | null,
+      data: e.data as HistorySnapshot | null,
+      prevData: e.prevData as HistorySnapshot | null,
       undoneAt: e.undoneAt?.toISOString() ?? null,
       createdAt: e.createdAt.toISOString(),
     }));
@@ -74,6 +84,21 @@ export const historyService = {
     });
   },
 
+  /**
+   * Records a participant removal as a log-only entry. These are NOT part of the
+   * undo/redo stack (see EXPENSE_ACTIONS), so we don't clear the redo stack here.
+   */
+  async recordParticipantRemoval(eventId: string, participant: ParticipantSnapshot) {
+    return prisma.expenseHistory.create({
+      data: {
+        eventId,
+        action: HistoryAction.REMOVE_PARTICIPANT,
+        expenseId: null,
+        data: { id: participant.id, name: participant.name } as Prisma.InputJsonValue,
+      },
+    });
+  },
+
   // ── Undo ──────────────────────────────────────────────────────────────────
 
   /**
@@ -87,11 +112,11 @@ export const historyService = {
    */
   async undo(eventId: string) {
     const entry = await prisma.expenseHistory.findFirst({
-      where: { eventId, undoneAt: null },
+      where: { eventId, undoneAt: null, action: { in: EXPENSE_ACTIONS } },
       orderBy: { createdAt: 'desc' },
     });
 
-    if (!entry) return null;
+    if (!entry || !entry.expenseId) return null;
 
     const { action, expenseId, prevData } = entry;
 
@@ -137,11 +162,11 @@ export const historyService = {
    */
   async redo(eventId: string) {
     const entry = await prisma.expenseHistory.findFirst({
-      where: { eventId, undoneAt: { not: null } },
+      where: { eventId, undoneAt: { not: null }, action: { in: EXPENSE_ACTIONS } },
       orderBy: { undoneAt: 'desc' }, // most recently undone = first to redo
     });
 
-    if (!entry) return null;
+    if (!entry || !entry.expenseId) return null;
 
     const { action, expenseId, data } = entry;
 

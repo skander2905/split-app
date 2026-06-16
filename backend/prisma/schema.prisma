@@ -71,6 +71,7 @@ enum HistoryAction {
   ADD
   EDIT
   DELETE
+  REMOVE_PARTICIPANT
 }
 
 model ExpenseHistory {
@@ -78,7 +79,7 @@ model ExpenseHistory {
   eventId    String
   event      Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   action     HistoryAction
-  expenseId  String        // always refers to the affected expense (even if deleted)
+  expenseId  String?       // affected expense (even if deleted); null for participant actions
   data       Json?         // snapshot AFTER the action  (null for DELETE)
   prevData   Json?         // snapshot BEFORE the action (null for ADD)
   undoneAt   DateTime?     // null = active, non-null = undone (enables redo)

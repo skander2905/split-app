@@ -15,10 +15,13 @@ import {
   Undo2,
   Redo2,
   Clock,
+  X,
+  ChevronDown,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useEvent } from '@/hooks/useEvent';
 import { formatCurrency } from '@/lib/utils';
-import type { Expense, HistoryEntry } from '@/types';
+import type { Expense, ExpenseSnapshot, HistoryEntry, ParticipantSnapshot } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -112,6 +115,10 @@ function ExpenseForm({
   const toggle = (id: string) =>
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
+  const allSelected = participants.length > 0 && selectedIds.length === participants.length;
+  const toggleAll = () =>
+    setSelectedIds(allSelected ? [] : participants.map((p) => p.id));
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({ title, amount, paidById, selectedIds });
@@ -173,7 +180,17 @@ function ExpenseForm({
       </div>
 
       <div className="space-y-2">
-        <Label>Split between</Label>
+        <div className="flex items-center justify-between">
+          <Label>Split between</Label>
+          <button
+            type="button"
+            onClick={toggleAll}
+            disabled={loading || participants.length === 0}
+            className="text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+          >
+            {allSelected ? 'Deselect all' : 'Select all'}
+          </button>
+        </div>
         <div className="rounded-md border p-3 space-y-2.5">
           {participants.map((p) => (
             <div key={p.id} className="flex items-center gap-3">
@@ -358,6 +375,72 @@ function EditExpenseDialog({ expense, participants, onEdit }: EditExpenseDialogP
   );
 }
 
+// ─── Participant Badge (removable) ────────────────────────────────────────────
+
+interface ParticipantBadgeProps {
+  participant: { id: string; name: string };
+  onRemove: (id: string) => Promise<void>;
+}
+
+function ParticipantBadge({ participant, onRemove }: ParticipantBadgeProps) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleRemove = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await onRemove(participant.id);
+      setOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove participant.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setError(null); }}>
+      <Badge variant="secondary" className="text-sm py-1 pl-3 pr-1 gap-1.5 flex items-center">
+        {participant.name}
+        <AlertDialogTrigger asChild>
+          <button
+            type="button"
+            className="rounded-full p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            title={`Remove ${participant.name}`}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </AlertDialogTrigger>
+      </Badge>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remove {participant.name}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            They'll be removed from this event. A participant who is part of any expense or
+            payment can't be removed — delete those first.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+          <Button
+            variant="destructive"
+            disabled={loading}
+            onClick={(e) => {
+              e.preventDefault();
+              handleRemove();
+            }}
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove'}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 // ─── History Log ──────────────────────────────────────────────────────────────
 
 function HistoryLog({ history }: { history: HistoryEntry[] }) {
@@ -374,15 +457,32 @@ function HistoryLog({ history }: { history: HistoryEntry[] }) {
     <ul className="space-y-2">
       {history.map((entry) => {
         const isUndone = !!entry.undoneAt;
-        const snapshot = entry.data ?? entry.prevData;
+        const isParticipant = entry.action === 'REMOVE_PARTICIPANT';
+
         const actionLabel =
-          entry.action === 'ADD' ? 'Added' : entry.action === 'EDIT' ? 'Edited' : 'Deleted';
+          entry.action === 'ADD'
+            ? 'Added'
+            : entry.action === 'EDIT'
+            ? 'Edited'
+            : entry.action === 'DELETE'
+            ? 'Deleted'
+            : 'Removed';
         const actionColor =
           entry.action === 'ADD'
             ? 'text-green-600'
             : entry.action === 'DELETE'
             ? 'text-destructive'
+            : entry.action === 'REMOVE_PARTICIPANT'
+            ? 'text-amber-600'
             : 'text-blue-600';
+
+        // Participant removals store a { id, name } snapshot; expense actions an ExpenseSnapshot.
+        const expenseSnap = isParticipant
+          ? null
+          : ((entry.data ?? entry.prevData) as ExpenseSnapshot | null);
+        const label = isParticipant
+          ? (entry.data as ParticipantSnapshot | null)?.name ?? '—'
+          : expenseSnap?.title ?? '—';
 
         return (
           <li
@@ -393,11 +493,14 @@ function HistoryLog({ history }: { history: HistoryEntry[] }) {
           >
             <span className={`font-medium shrink-0 w-14 ${actionColor}`}>{actionLabel}</span>
             <span className={`flex-1 truncate ${isUndone ? 'line-through' : ''}`}>
-              {snapshot?.title ?? '—'}
+              {label}
+              {isParticipant && (
+                <span className="text-xs text-muted-foreground"> · participant</span>
+              )}
             </span>
-            {snapshot && (
+            {expenseSnap && (
               <span className="tabular-nums text-muted-foreground shrink-0">
-                {formatCurrency(snapshot.amount)}
+                {formatCurrency(expenseSnap.amount)}
               </span>
             )}
             <span className="text-xs text-muted-foreground shrink-0">
@@ -407,6 +510,71 @@ function HistoryLog({ history }: { history: HistoryEntry[] }) {
         );
       })}
     </ul>
+  );
+}
+
+// ─── Collapsible Section Card ─────────────────────────────────────────────────
+
+interface SectionCardProps {
+  icon: LucideIcon;
+  title: string;
+  description?: React.ReactNode;
+  /** Persisted per-section in localStorage so the user's choice sticks. */
+  storageKey: string;
+  defaultOpen?: boolean;
+  headerActions?: React.ReactNode;
+  contentClassName?: string;
+  children: React.ReactNode;
+}
+
+function SectionCard({
+  icon: Icon,
+  title,
+  description,
+  storageKey,
+  defaultOpen = true,
+  headerActions,
+  contentClassName,
+  children,
+}: SectionCardProps) {
+  const key = `split-app:section:${storageKey}`;
+  const [open, setOpen] = useState<boolean>(() => {
+    const saved = localStorage.getItem(key);
+    return saved === null ? defaultOpen : saved === '1';
+  });
+
+  const toggle = () =>
+    setOpen((prev) => {
+      localStorage.setItem(key, prev ? '0' : '1');
+      return !prev;
+    });
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={open}
+            className="flex items-center gap-2 min-w-0 flex-1 text-left rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform shrink-0 ${
+                open ? '' : '-rotate-90'
+              }`}
+            />
+            <CardTitle className="text-base flex items-center gap-2 truncate">
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="truncate">{title}</span>
+            </CardTitle>
+          </button>
+          {headerActions}
+        </div>
+        {open && description && <CardDescription className="mt-1.5">{description}</CardDescription>}
+      </CardHeader>
+      {open && <CardContent className={contentClassName}>{children}</CardContent>}
+    </Card>
   );
 }
 
@@ -424,6 +592,7 @@ export default function EventPage() {
     error,
     renameEvent,
     addParticipant,
+    removeParticipant,
     addExpense,
     editExpense,
     deleteExpense,
@@ -630,15 +799,13 @@ export default function EventPage() {
         {/* Main grid */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Participants */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Participants
-              </CardTitle>
-              <CardDescription>Add everyone who's sharing costs.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <SectionCard
+            icon={Users}
+            title="Participants"
+            description="Add everyone who's sharing costs."
+            storageKey="participants"
+            contentClassName="space-y-4"
+          >
               {event.participants.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No participants yet.
@@ -646,9 +813,7 @@ export default function EventPage() {
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {event.participants.map((p) => (
-                    <Badge key={p.id} variant="secondary" className="text-sm py-1 px-3">
-                      {p.name}
-                    </Badge>
+                    <ParticipantBadge key={p.id} participant={p} onRemove={removeParticipant} />
                   ))}
                 </div>
               )}
@@ -672,23 +837,19 @@ export default function EventPage() {
               {participantError && (
                 <p className="text-sm text-destructive">{participantError}</p>
               )}
-            </CardContent>
-          </Card>
+          </SectionCard>
 
           {/* Expenses */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Receipt className="h-4 w-4" />
-                Expenses
-              </CardTitle>
-              <CardDescription>
-                {event.expenses.length === 0
-                  ? 'No expenses yet — add one above.'
-                  : `${event.expenses.length} expense${event.expenses.length !== 1 ? 's' : ''} recorded.`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <SectionCard
+            icon={Receipt}
+            title="Expenses"
+            description={
+              event.expenses.length === 0
+                ? 'No expenses yet — add one above.'
+                : `${event.expenses.length} expense${event.expenses.length !== 1 ? 's' : ''} recorded.`
+            }
+            storageKey="expenses"
+          >
               {event.expenses.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Receipt className="h-8 w-8 mx-auto mb-2 opacity-30" />
@@ -751,20 +912,16 @@ export default function EventPage() {
                   ))}
                 </ul>
               )}
-            </CardContent>
-          </Card>
+          </SectionCard>
         </div>
 
         {/* Settlements */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Settlements
-            </CardTitle>
-            <CardDescription>Minimum transactions needed to settle all debts.</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <SectionCard
+          icon={TrendingUp}
+          title="Settlements"
+          description="Minimum transactions needed to settle all debts."
+          storageKey="settlements"
+        >
             {!settlement || event.expenses.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-30" />
@@ -909,45 +1066,38 @@ export default function EventPage() {
                 </ul>
               </>
             )}
-          </CardContent>
-        </Card>
+        </SectionCard>
 
         {/* History Log */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  History
-                </CardTitle>
-              </div>
-              <div className="flex gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleUndo}
-                  disabled={!canUndo || undoLoading}
-                >
-                  <Undo2 className="h-3.5 w-3.5 mr-1.5" />
-                  Undo
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRedo}
-                  disabled={!canRedo || redoLoading}
-                >
-                  <Redo2 className="h-3.5 w-3.5 mr-1.5" />
-                  Redo
-                </Button>
-              </div>
+        <SectionCard
+          icon={Clock}
+          title="History"
+          storageKey="history"
+          headerActions={
+            <div className="flex gap-1 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUndo}
+                disabled={!canUndo || undoLoading}
+              >
+                <Undo2 className="h-3.5 w-3.5 mr-1.5" />
+                Undo
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRedo}
+                disabled={!canRedo || redoLoading}
+              >
+                <Redo2 className="h-3.5 w-3.5 mr-1.5" />
+                Redo
+              </Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            <HistoryLog history={history} />
-          </CardContent>
-        </Card>
+          }
+        >
+          <HistoryLog history={history} />
+        </SectionCard>
       </main>
     </div>
   );

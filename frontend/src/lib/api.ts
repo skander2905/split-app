@@ -45,6 +45,9 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ name }),
       }),
+
+    remove: (slug: string, participantId: string) =>
+      request<void>(`/events/${slug}/participants/${participantId}`, { method: 'DELETE' }),
   },
 
   expenses: {

@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { eventService } from '../services/event.service';
 import { paymentService } from '../services/payment.service';
+import { settlementService } from '../services/settlement.service';
+import { settlementCap } from '../services/settlement.algorithm';
 
 export const paymentController = {
   async create(req: Request, res: Response, next: NextFunction) {
@@ -22,7 +24,17 @@ export const paymentController = {
         return res.status(400).json({ error: 'Participant not in this event.' });
       }
 
-      const payment = await paymentService.create(event.id, fromId, toId, value);
+      // Guard against overshoot: a settlement can't exceed the payer's current
+      // debt to the recipient. Without this, a duplicate/stale "Settle" click
+      // flips the balance and the next recompute suggests the transfer REVERSED.
+      const { balances } = await settlementService.calculate(event.id);
+      const cap = settlementCap(balances, fromId, toId);
+      if (cap < 0.01) {
+        return res.status(409).json({ error: 'That debt is already settled.' });
+      }
+      const recordAmount = Math.min(value, cap);
+
+      const payment = await paymentService.create(event.id, fromId, toId, recordAmount);
       res.status(201).json(payment);
     } catch (err) {
       next(err);
