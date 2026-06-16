@@ -58,7 +58,7 @@ export interface Settlement {
   payments: Payment[];
 }
 
-export type HistoryAction = 'ADD' | 'EDIT' | 'DELETE';
+export type HistoryAction = 'ADD' | 'EDIT' | 'DELETE' | 'REMOVE_PARTICIPANT';
 
 export interface ExpenseSnapshot {
   id: string;
@@ -69,12 +69,19 @@ export interface ExpenseSnapshot {
   eventId: string;
 }
 
+export interface ParticipantSnapshot {
+  id: string;
+  name: string;
+}
+
+export type HistorySnapshot = ExpenseSnapshot | ParticipantSnapshot;
+
 export interface HistoryEntry {
   id: string;
   action: HistoryAction;
-  expenseId: string;
-  data: ExpenseSnapshot | null;
-  prevData: ExpenseSnapshot | null;
+  expenseId: string | null;
+  data: HistorySnapshot | null;
+  prevData: HistorySnapshot | null;
   undoneAt: string | null;
   createdAt: string;
 }

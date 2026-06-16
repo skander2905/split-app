@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma';
+import { splitShares } from './expense.split';
 
 /** Shape stored in ExpenseHistory.data / prevData */
 export interface ExpenseSnapshot {
@@ -46,8 +47,6 @@ export const expenseService = {
     paidById: string,
     participantIds: string[],
   ) {
-    const splitAmount = Math.round((amount / participantIds.length) * 100) / 100;
-
     return prisma.expense.create({
       data: {
         title,
@@ -55,10 +54,7 @@ export const expenseService = {
         eventId,
         paidById,
         splits: {
-          create: participantIds.map((participantId) => ({
-            participantId,
-            amount: splitAmount,
-          })),
+          create: splitShares(amount, participantIds),
         },
       },
       include: includeRelations,
@@ -70,9 +66,6 @@ export const expenseService = {
    * Used by undo (for DELETE) and redo (for ADD).
    */
   async recreate(snapshot: ExpenseSnapshot) {
-    const splitAmount =
-      Math.round((snapshot.amount / snapshot.participantIds.length) * 100) / 100;
-
     return prisma.expense.create({
       data: {
         id: snapshot.id,
@@ -81,10 +74,7 @@ export const expenseService = {
         eventId: snapshot.eventId,
         paidById: snapshot.paidById,
         splits: {
-          create: snapshot.participantIds.map((participantId) => ({
-            participantId,
-            amount: splitAmount,
-          })),
+          create: splitShares(snapshot.amount, snapshot.participantIds),
         },
       },
       include: includeRelations,
@@ -101,8 +91,6 @@ export const expenseService = {
     paidById: string,
     participantIds: string[],
   ) {
-    const splitAmount = Math.round((amount / participantIds.length) * 100) / 100;
-
     // Replace splits atomically inside a transaction
     await prisma.expenseSplit.deleteMany({ where: { expenseId } });
 
@@ -113,10 +101,7 @@ export const expenseService = {
         amount,
         paidById,
         splits: {
-          create: participantIds.map((participantId) => ({
-            participantId,
-            amount: splitAmount,
-          })),
+          create: splitShares(amount, participantIds),
         },
       },
       include: includeRelations,

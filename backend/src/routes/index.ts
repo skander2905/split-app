@@ -15,6 +15,7 @@ router.get('/events/:slug/settlements', eventController.getSettlements);
 
 // ── Participants ──────────────────────────────────────────────────────────────
 router.post('/events/:slug/participants', participantController.add);
+router.delete('/events/:slug/participants/:participantId', participantController.remove);
 
 // ── Expenses ──────────────────────────────────────────────────────────────────
 router.post('/events/:slug/expenses', expenseController.add);

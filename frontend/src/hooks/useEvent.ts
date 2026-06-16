@@ -12,6 +12,7 @@ interface UseEventReturn {
   error: string | null;
   renameEvent: (name: string) => Promise<void>;
   addParticipant: (name: string) => Promise<Participant>;
+  removeParticipant: (participantId: string) => Promise<void>;
   addExpense: (data: {
     title: string;
     amount: number;
@@ -87,6 +88,16 @@ export function useEvent(slug: string): UseEventReturn {
     return participant;
   };
 
+  const removeParticipant = async (participantId: string): Promise<void> => {
+    await api.participants.remove(slug, participantId);
+    setEvent((prev) =>
+      prev
+        ? { ...prev, participants: prev.participants.filter((p) => p.id !== participantId) }
+        : prev,
+    );
+    await refreshDerived();
+  };
+
   // ── Expenses ───────────────────────────────────────────────────────────────
 
   const addExpense = async (data: {
@@ -159,8 +170,10 @@ export function useEvent(slug: string): UseEventReturn {
 
   // ── Derived flags ──────────────────────────────────────────────────────────
 
-  const canUndo = history.some((h) => !h.undoneAt);
-  const canRedo = history.some((h) => !!h.undoneAt);
+  // Participant removals are log-only — they don't participate in undo/redo.
+  const isUndoable = (h: HistoryEntry) => h.action !== 'REMOVE_PARTICIPANT';
+  const canUndo = history.some((h) => !h.undoneAt && isUndoable(h));
+  const canRedo = history.some((h) => !!h.undoneAt && isUndoable(h));
 
   return {
     event,
@@ -172,6 +185,7 @@ export function useEvent(slug: string): UseEventReturn {
     error,
     renameEvent,
     addParticipant,
+    removeParticipant,
     addExpense,
     editExpense,
     deleteExpense,
