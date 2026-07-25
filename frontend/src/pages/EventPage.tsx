@@ -212,7 +212,7 @@ function ExpenseForm({
           <div
             ref={listRef}
             onScroll={updateListScroll}
-            className="rounded-md border p-3 space-y-2.5 max-h-56 overflow-y-auto"
+            className="rounded-md border p-3 space-y-2.5 max-h-56 sm:max-h-96 overflow-y-auto"
           >
             {participants.map((p) => (
               <div key={p.id} className="flex items-center gap-3">
