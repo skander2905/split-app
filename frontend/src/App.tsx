@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import CreateEvent from '@/pages/CreateEvent';
 import EventPage from '@/pages/EventPage';
 
@@ -9,6 +10,7 @@ export default function App() {
         <Route path="/" element={<CreateEvent />} />
         <Route path="/event/:slug" element={<EventPage />} />
       </Routes>
+      <Analytics />
     </BrowserRouter>
   );
 }
