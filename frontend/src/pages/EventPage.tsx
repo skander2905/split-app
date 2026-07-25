@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   SplitSquareVertical,
@@ -129,8 +129,22 @@ function ExpenseForm({
       ? formatCurrency(parseFloat(amount) / selectedIds.length)
       : null;
 
+  // Scroll affordance for the participant list (fades + chevron when there's more)
+  const listRef = useRef<HTMLDivElement>(null);
+  const [listScroll, setListScroll] = useState({ up: false, down: false });
+  const updateListScroll = () => {
+    const el = listRef.current;
+    if (!el) return;
+    setListScroll({
+      up: el.scrollTop > 0,
+      down: el.scrollTop + el.clientHeight < el.scrollHeight - 1,
+    });
+  };
+  useEffect(updateListScroll, [participants.length]);
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 py-2">
+    <form onSubmit={handleSubmit} className="flex flex-col min-h-0">
+      <div className="space-y-4 overflow-y-auto -mx-1 px-1 py-2">
       <div className="space-y-2">
         <Label htmlFor="exp-title">Description</Label>
         <Input
@@ -191,29 +205,47 @@ function ExpenseForm({
             {allSelected ? 'Deselect all' : 'Select all'}
           </button>
         </div>
-        <div className="rounded-md border p-3 space-y-2.5">
-          {participants.map((p) => (
-            <div key={p.id} className="flex items-center gap-3">
-              <Checkbox
-                id={`split-${p.id}`}
-                checked={selectedIds.includes(p.id)}
-                onCheckedChange={() => toggle(p.id)}
-                disabled={loading}
-              />
-              <label htmlFor={`split-${p.id}`} className="text-sm cursor-pointer select-none flex-1">
-                {p.name}
-              </label>
-              {selectedIds.includes(p.id) && perPerson && (
-                <span className="text-xs text-muted-foreground tabular-nums">{perPerson}</span>
-              )}
+        <div className="relative">
+          {listScroll.up && (
+            <div className="pointer-events-none absolute inset-x-px top-px z-10 h-6 rounded-t-md bg-gradient-to-b from-background to-transparent" />
+          )}
+          <div
+            ref={listRef}
+            onScroll={updateListScroll}
+            className="rounded-md border p-3 space-y-2.5 max-h-56 overflow-y-auto"
+          >
+            {participants.map((p) => (
+              <div key={p.id} className="flex items-center gap-3">
+                <Checkbox
+                  id={`split-${p.id}`}
+                  checked={selectedIds.includes(p.id)}
+                  onCheckedChange={() => toggle(p.id)}
+                  disabled={loading}
+                />
+                <label
+                  htmlFor={`split-${p.id}`}
+                  className="text-sm cursor-pointer select-none flex-1"
+                >
+                  {p.name}
+                </label>
+                {selectedIds.includes(p.id) && perPerson && (
+                  <span className="text-xs text-muted-foreground tabular-nums">{perPerson}</span>
+                )}
+              </div>
+            ))}
+          </div>
+          {listScroll.down && (
+            <div className="pointer-events-none absolute inset-x-px bottom-px z-10 flex h-8 items-end justify-center rounded-b-md bg-gradient-to-t from-background to-transparent">
+              <ChevronDown className="mb-1 h-4 w-4 animate-bounce text-muted-foreground" />
             </div>
-          ))}
+          )}
         </div>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+      </div>
 
-      <DialogFooter>
+      <DialogFooter className="pt-4 shrink-0">
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
           {loading ? 'Saving…' : submitLabel}
