@@ -14,7 +14,16 @@ export const participantController = {
       const event = await eventService.findBySlug(req.params.slug);
       if (!event) return res.status(404).json({ error: 'Event not found.' });
 
-      const participant = await participantService.addToEvent(event.id, name.trim());
+      const trimmed = name.trim();
+      // ponytail: app-level dup check; add a unique (eventId, lower(name)) DB constraint if concurrent adds race
+      const duplicate = event.participants.some(
+        (p) => p.name.toLowerCase() === trimmed.toLowerCase(),
+      );
+      if (duplicate) {
+        return res.status(409).json({ error: `"${trimmed}" is already a participant.` });
+      }
+
+      const participant = await participantService.addToEvent(event.id, trimmed);
       res.status(201).json(participant);
     } catch (err) {
       next(err);
