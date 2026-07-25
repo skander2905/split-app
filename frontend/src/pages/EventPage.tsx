@@ -191,7 +191,7 @@ function ExpenseForm({
             {allSelected ? 'Deselect all' : 'Select all'}
           </button>
         </div>
-        <div className="rounded-md border p-3 space-y-2.5">
+        <div className="rounded-md border p-3 space-y-2.5 max-h-56 overflow-y-auto">
           {participants.map((p) => (
             <div key={p.id} className="flex items-center gap-3">
               <Checkbox
