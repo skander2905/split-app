@@ -582,7 +582,7 @@ function SectionCard({
     });
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <button
