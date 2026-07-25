@@ -634,6 +634,13 @@ export default function EventPage() {
     redo,
   } = useEvent(slug!);
 
+  useEffect(() => {
+    document.title = event ? `${event.name} · Split` : 'Split';
+    return () => {
+      document.title = 'Split';
+    };
+  }, [event?.name]);
+
   const [settlingIdx, setSettlingIdx] = useState<number | null>(null);
   const [unsettlingId, setUnsettlingId] = useState<string | null>(null);
 
